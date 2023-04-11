@@ -13,15 +13,19 @@ contract Pool is AccessControlEnumerable, Ownable {
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
 
-    uint256 public constant LOCK_SLOT_INTERVAL_SECS = 86400 * 7;    // 1 week
-    uint256 public constant LOCK_WINDOW_SIZE = 52;                  // about 1 year
-
+    // pegged ETC
     IERC20 public minedToken;
+
+    // time window for lock
+    uint256 public lockSlotIntervalSecs;
+    uint256 public lockWindowSize;
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
-    constructor(IERC20 minedToken_) {
+    constructor(IERC20 minedToken_, uint256 lockSlotIntervalSecs_, uint256 lockWindowSize_) {
         minedToken = minedToken_;
+        lockSlotIntervalSecs = lockSlotIntervalSecs_;
+        lockWindowSize = lockWindowSize_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -45,7 +49,7 @@ contract Pool is AccessControlEnumerable, Ownable {
     function deposit(uint256 amount, address account) public onlyRole(DEPOSIT_ROLE) {
         require(amount > 0, "amount is zero");
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
-        _balances[account].push(amount, LOCK_SLOT_INTERVAL_SECS, LOCK_WINDOW_SIZE);
+        _balances[account].push(amount, lockSlotIntervalSecs, lockWindowSize);
         // TODO leverage Swappi or Goledo to provide liquidity, earn fees and defi mining
         // it's up to conflux funds to provide cfx
         // both LP & farming
