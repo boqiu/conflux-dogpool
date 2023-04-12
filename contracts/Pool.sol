@@ -36,6 +36,8 @@ contract Pool is Swappable, AccessControlEnumerable {
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
 
+    bool public initialized;
+
     // pegged ETC
     IERC20 public minedToken;
 
@@ -48,12 +50,17 @@ contract Pool is Swappable, AccessControlEnumerable {
     // e.g. 20 means 20% ETH bonus
     uint8 public bonusPercentageETH = 20;
 
-    constructor(
+    function initialize(
         address router,
         IERC20 minedToken_,
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
-    ) Swappable(router) {
+    ) public {
+        require(!initialized, "initialized already");
+        initialized = true;
+
+        Swappable._initialize(router);
+
         minedToken = minedToken_;
         lockSlotIntervalSecs = lockSlotIntervalSecs_;
         lockWindowSize = lockWindowSize_;
