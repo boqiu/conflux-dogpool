@@ -54,7 +54,21 @@ library TimeWindow {
         return (front, true);
     }
 
-    function clear(TimeoutWindow storage window) internal returns (bool) {
+    function pop(TimeoutWindow storage window) internal returns (uint256, bool) {
+        uint256 front = window.start;
+
+        if (front == window.end) {
+            return (0, false);
+        }
+
+        delete window.endTimes[front];
+        delete window.endTimes[front];
+        window.start++;
+
+        return (front, true);
+    }
+
+    function tryClear(TimeoutWindow storage window) internal returns (bool) {
         if (window.start < window.end) {
             return false;
         }
@@ -121,8 +135,26 @@ library TimeWindow {
         return expiredBalance;
     }
 
-    function clearIfEmpty(BalanceWindow storage window) internal returns (bool) {
-        return clear(window.timeouts);
+    function tryClear(BalanceWindow storage window) internal returns (bool) {
+        return tryClear(window.timeouts);
+    }
+
+    function clear(BalanceWindow storage window) internal returns (uint256 balance) {
+        balance = window.balance;
+
+        while (true) {
+            (uint256 front, bool removed) = pop(window.timeouts);
+            if (!removed) {
+                break;
+            }
+
+            delete window.slots[front];
+        }
+
+        window.balance = 0;
+        window.expiredBalance = 0;
+
+        tryClear(window.timeouts);
     }
 
     struct LockedBalance {

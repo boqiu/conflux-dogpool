@@ -9,12 +9,29 @@ contract Pool is Swappable, AccessControlEnumerable {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
-    event LiquidityETHAdded(
+    event Deposit(
         address indexed operator,
         address indexed account,
         uint256 amountToken,
         uint256 amountETH,
         uint256 liquidity
+    );
+
+    event Withdraw(
+        address indexed operator,
+        address indexed recipient,
+        uint256 liquidity,
+        uint256 amountToken,
+        uint256 amountETH,
+        uint256 bonusETH
+    );
+
+    event ForceWithdraw(
+        address indexed operator,
+        address indexed recipient,
+        uint256 liquidity,
+        uint256 amountToken,
+        uint256 amountETH
     );
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
@@ -58,7 +75,7 @@ contract Pool is Swappable, AccessControlEnumerable {
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
         (uint256 amountETH, uint256 liquidity) = _addLiquidityETH(address(minedToken), amount);
-        emit LiquidityETHAdded(msg.sender, account, amount, amountETH, liquidity);
+        emit Deposit(msg.sender, account, amount, amountETH, liquidity);
 
         // TODO farm in advance to earn PPI
 
@@ -81,16 +98,42 @@ contract Pool is Swappable, AccessControlEnumerable {
             return;
         }
 
-        if (_balances[msg.sender].clearIfEmpty()) {
+        if (_balances[msg.sender].tryClear()) {
             delete _balances[msg.sender];
         }
 
         (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
 
-        minedToken.safeTransferFrom(address(this), recipient, amountToken);
-        recipient.transfer(amountETH * bonusPercentageETH / 100);
+        if (amountToken > 0) {
+            minedToken.safeTransferFrom(address(this), recipient, amountToken);
+        }
+
+        uint256 bonusETH = amountETH * bonusPercentageETH / 100;
+        if (bonusETH > 0) {
+            recipient.transfer(bonusETH);
+        }
+
+        emit Withdraw(msg.sender, recipient, amount, amountToken, amountETH, bonusETH);
     }
 
-    // TODO user force withdraw locked assets.
+    /**
+     * @dev Allow user to force withdraw locked assets without bonus.
+     */
+    function forceWithdraw(address payable recipient) public {
+        uint256 amount = _balances[msg.sender].clear();
+        if (amount == 0) {
+            return;
+        }
+
+        delete _balances[msg.sender];
+
+        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
+
+        if (amountToken > 0) {
+            minedToken.safeTransferFrom(address(this), recipient, amountToken);
+        }
+
+        emit ForceWithdraw(msg.sender, recipient, amount, amountToken, amountETH);
+    }
 
 }
