@@ -9,11 +9,11 @@ contract Pool is Swappable, AccessControlEnumerable {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
-    event LiquidityEthAdded(
+    event LiquidityETHAdded(
         address indexed operator,
         address indexed account,
         uint256 amountToken,
-        uint256 amountEth,
+        uint256 amountETH,
         uint256 liquidity
     );
 
@@ -28,6 +28,9 @@ contract Pool is Swappable, AccessControlEnumerable {
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
+    // e.g. 20 means 20% ETH bonus
+    uint8 public bonusPercentageETH = 20;
+
     constructor(
         address router,
         IERC20 minedToken_,
@@ -41,6 +44,11 @@ contract Pool is Swappable, AccessControlEnumerable {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
+    function setBonusPercentageETH(uint8 value) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(value <= 100, "value out of bound");
+        bonusPercentageETH = value;
+    }
+
     /**
      * @dev Dog pool operator deposits ETC into pool for specified `account`.
      */
@@ -49,8 +57,8 @@ contract Pool is Swappable, AccessControlEnumerable {
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        (uint256 amountEth, uint256 liquidity) = _addLiquidityETH(address(minedToken), amount);
-        emit LiquidityEthAdded(msg.sender, account, amount, amountEth, liquidity);
+        (uint256 amountETH, uint256 liquidity) = _addLiquidityETH(address(minedToken), amount);
+        emit LiquidityETHAdded(msg.sender, account, amount, amountETH, liquidity);
 
         // TODO farm in advance to earn PPI
 
@@ -67,19 +75,20 @@ contract Pool is Swappable, AccessControlEnumerable {
     /**
      * @dev User withdraw unlocked assets.
      */
-    function withdraw(address recipient) public {
+    function withdraw(address payable recipient) public {
         uint256 amount = _balances[msg.sender].pop();
+        if (amount == 0) {
+            return;
+        }
 
         if (_balances[msg.sender].clearIfEmpty()) {
             delete _balances[msg.sender];
         }
 
-        // TODO withdraw from defi mining, and what fees and bonus to user?
+        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
 
-        if (amount > 0) {
-            // TODO transfer fee and bonus to user
-            minedToken.safeTransferFrom(address(this), recipient, amount);
-        }
+        minedToken.safeTransferFrom(address(this), recipient, amountToken);
+        recipient.transfer(amountETH * bonusPercentageETH / 100);
     }
 
     // TODO user force withdraw locked assets.

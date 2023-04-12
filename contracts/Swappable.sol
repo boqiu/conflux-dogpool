@@ -24,31 +24,48 @@ contract Swappable is Ownable {
         payable(msg.sender).transfer(amount);
     }
 
-    function _addLiquidityETH(address token, uint256 amount) internal returns (uint256, uint256) {
+    function _addLiquidityETH(address token, uint256 amount) internal returns (uint256 amountETH, uint256 liquidity) {
         address pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
         require(pair != address(0), "pair not found");
 
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(pair).getReserves();
 
-        uint256 amountEthDesired = 0;
+        uint256 amountETHDesired = 0;
         if (IUniswapV2Pair(pair).token0() == token) {
-            amountEthDesired = amount * reserve1 / reserve0;
+            amountETHDesired = amount * reserve1 / reserve0;
         } else {
-            amountEthDesired = amount * reserve0 / reserve1;
+            amountETHDesired = amount * reserve0 / reserve1;
         }
 
-        require(amountEthDesired <= address(this).balance, "balance not enough");
+        require(amountETHDesired <= address(this).balance, "balance not enough");
 
         IERC20(token).safeApprove(address(router), amount);
 
-        (uint256 amountToken, uint256 amountEth, uint256 liquidity) = router.addLiquidityETH{value: amountEthDesired}(
-            token, amount, amount, amountEthDesired, address(this), block.timestamp
+        uint256 amountToken = 0;
+        (amountToken, amountETH, liquidity) = router.addLiquidityETH{value: amountETHDesired}(
+            token, amount, amount, amountETHDesired, address(this), block.timestamp
         );
 
         require(amountToken == amount, "token amount mismatch");
-        require(amountEth == amountEthDesired, "ETH amount mismatch");
+        require(amountETH == amountETHDesired, "ETH amount mismatch");
+    }
 
-        return (amountEth, liquidity);
+    function _removeLiquidityETH(address token, uint256 liquidity) internal returns (uint amountToken, uint amountETH) {
+        address pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
+        require(pair != address(0), "pair not found");
+
+        uint256 totalLiquidity = IUniswapV2Pair(pair).totalSupply();
+        uint256 amountTokenMin = liquidity * IERC20(token).balanceOf(pair) / totalLiquidity;
+        uint256 amountETHMin = liquidity * IERC20(router.WETH()).balanceOf(pair) / totalLiquidity;
+
+        IERC20(pair).safeApprove(address(router), liquidity);
+
+        (amountToken, amountETH) = router.removeLiquidityETH(
+            pair, liquidity, amountTokenMin, amountETHMin, address(this), block.timestamp
+        );
+
+        require(amountToken == amountTokenMin, "token amount mismatch");
+        require(amountETH == amountETHMin, "ETH amount mismatch");
     }
 
 }
