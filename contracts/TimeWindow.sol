@@ -40,10 +40,9 @@ library TimeWindow {
         return (window.end - 1, true);
     }
 
-    function popFrontIfExpired(TimeoutWindow storage window) internal returns (uint256, bool) {
+    function popFront(TimeoutWindow storage window) internal returns (uint256, bool) {
         uint256 front = window.start;
-
-        if (front == window.end || !expired(window, front)) {
+        if (front == window.end) {
             return (0, false);
         }
 
@@ -54,18 +53,12 @@ library TimeWindow {
         return (front, true);
     }
 
-    function pop(TimeoutWindow storage window) internal returns (uint256, bool) {
-        uint256 front = window.start;
-
-        if (front == window.end) {
+    function popFrontIfExpired(TimeoutWindow storage window) internal returns (uint256, bool) {
+        if (!expired(window, window.start)) {
             return (0, false);
         }
 
-        delete window.endTimes[front];
-        delete window.endTimes[front];
-        window.start++;
-
-        return (front, true);
+        return popFront(window);
     }
 
     function tryClear(TimeoutWindow storage window) internal returns (bool) {
@@ -84,36 +77,28 @@ library TimeWindow {
     struct BalanceWindow {
         TimeoutWindow timeouts;
         mapping(uint256 => uint256) slots;  // index => amount
-        uint256 balance;                    // total balance
         uint256 expiredBalance;             // expired balance
     }
 
-    function _expire(BalanceWindow storage window, bool updateExpiredBalance) private returns (uint256) {
-        uint256 result = 0;
-
+    function _expire(BalanceWindow storage window, bool updateExpiredBalance) private returns (uint256 expiredBalance) {
         while (true) {
             (uint256 front, bool removed) = popFrontIfExpired(window.timeouts);
             if (!removed) {
                 break;
             }
 
-            result += window.slots[front];
-
-            if (updateExpiredBalance) {
-                window.expiredBalance += window.slots[front];
-            }
-
+            expiredBalance += window.slots[front];
             delete window.slots[front];
         }
 
-        return result;
+        if (expiredBalance > 0 && updateExpiredBalance) {
+            window.expiredBalance += expiredBalance;
+        }
     }
 
     function push(BalanceWindow storage window, uint256 amount, uint256 slotIntervalSecs, uint256 numSlots) internal {
         // gc to avoid long array
         _expire(window, true);
-
-        window.balance += amount;
 
         (uint256 back, bool added) = pushBackIfEnded(window.timeouts, slotIntervalSecs, numSlots);
         if (added) {
@@ -123,16 +108,13 @@ library TimeWindow {
         }
     }
 
-    function pop(BalanceWindow storage window) internal returns (uint256) {
-        uint256 expiredBalance = _expire(window, false);
+    function pop(BalanceWindow storage window) internal returns (uint256 expiredBalance) {
+        expiredBalance = _expire(window, false);
         expiredBalance += window.expiredBalance;
 
         if (expiredBalance > 0) {
-            window.balance -= expiredBalance;
             window.expiredBalance = 0;
         }
-
-        return expiredBalance;
     }
 
     function tryClear(BalanceWindow storage window) internal returns (bool) {
@@ -140,19 +122,20 @@ library TimeWindow {
     }
 
     function clear(BalanceWindow storage window) internal returns (uint256 balance) {
-        balance = window.balance;
+        balance = window.expiredBalance;
+        if (balance > 0) {
+            window.expiredBalance = 0;
+        }
 
         while (true) {
-            (uint256 front, bool removed) = pop(window.timeouts);
+            (uint256 front, bool removed) = popFront(window.timeouts);
             if (!removed) {
                 break;
             }
 
+            balance += window.slots[front];
             delete window.slots[front];
         }
-
-        window.balance = 0;
-        window.expiredBalance = 0;
 
         tryClear(window.timeouts);
     }
@@ -166,12 +149,14 @@ library TimeWindow {
         internal view
         returns (uint256 totalBalance, uint256 expiredBalance, LockedBalance[] memory unexpiredBalances)
     {
-        totalBalance = window.balance;
+        totalBalance = window.expiredBalance;
         expiredBalance = window.expiredBalance;
 
         uint256 index = 0;
 
         for (uint256 i = window.timeouts.start; i < window.timeouts.end; i++) {
+            totalBalance += window.slots[i];
+
             if (expired(window.timeouts, i)) {
                 expiredBalance += window.slots[i];
             } else {
