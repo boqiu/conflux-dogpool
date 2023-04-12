@@ -1,15 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "./Swappable.sol";
 import "./TimeWindow.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract Pool is AccessControlEnumerable, Ownable {
+contract Pool is Swappable, AccessControlEnumerable {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
+
+    event LiquidityEthAdded(
+        address indexed operator,
+        address indexed account,
+        uint256 amountToken,
+        uint256 amountEth,
+        uint256 liquidity
+    );
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
 
@@ -22,7 +28,12 @@ contract Pool is AccessControlEnumerable, Ownable {
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
-    constructor(IERC20 minedToken_, uint256 lockSlotIntervalSecs_, uint256 lockWindowSize_) {
+    constructor(
+        address router,
+        IERC20 minedToken_,
+        uint256 lockSlotIntervalSecs_,
+        uint256 lockWindowSize_
+    ) Swappable(router) {
         minedToken = minedToken_;
         lockSlotIntervalSecs = lockSlotIntervalSecs_;
         lockWindowSize = lockWindowSize_;
@@ -31,29 +42,19 @@ contract Pool is AccessControlEnumerable, Ownable {
     }
 
     /**
-     * @dev Deposit CFX to provide liquidity in Swappi.
-     */
-    receive() external payable {}
-
-    /**
-     * @dev Allow owner to withdraw CFX in case of an emergency.
-     */
-    function withdraw(uint256 amount) public onlyOwner {
-        require(amount <= address(this).balance, "balance not enough");
-        payable(msg.sender).transfer(amount);
-    }
-
-    /**
      * @dev Dog pool operator deposits ETC into pool for specified `account`.
      */
     function deposit(uint256 amount, address account) public onlyRole(DEPOSIT_ROLE) {
         require(amount > 0, "amount is zero");
+
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
-        _balances[account].push(amount, lockSlotIntervalSecs, lockWindowSize);
-        // TODO leverage Swappi or Goledo to provide liquidity, earn fees and defi mining
-        // it's up to conflux funds to provide cfx
-        // both LP & farming
-        // goledo in advance?
+
+        (uint256 amountEth, uint256 liquidity) = _addLiquidityETH(address(minedToken), amount);
+        emit LiquidityEthAdded(msg.sender, account, amount, amountEth, liquidity);
+
+        // TODO farm in advance to earn PPI
+
+        _balances[account].push(liquidity, lockSlotIntervalSecs, lockWindowSize);
     }
 
     function balanceOf(address account)
