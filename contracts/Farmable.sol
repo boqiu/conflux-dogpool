@@ -44,7 +44,9 @@ contract Farmable is ProfitablePool {
     }
 
     function _deposit(address account, uint256 liquidity) internal returns (uint256 accountProfit) {
-        lpToken.safeApprove(address(farm), liquidity);
+        if (liquidity > 0) {
+            lpToken.safeApprove(address(farm), liquidity);
+        }
 
         uint256 profit = farm.deposit(poolId, liquidity);
 
@@ -60,7 +62,10 @@ contract Farmable is ProfitablePool {
 
         accountProfit = ProfitablePool._withdraw(profit, account, liquidity);
         if (accountProfit > 0) {
-            rewardToken.safeTransfer(profitRecipient, accountProfit);
+            if (profitRecipient != address(0)) {
+                rewardToken.safeTransfer(profitRecipient, accountProfit);
+            }
+
             emit Reward(account, profitRecipient, accountProfit);
         }
     }

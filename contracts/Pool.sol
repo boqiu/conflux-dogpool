@@ -140,7 +140,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
         delete _balances[msg.sender];
 
         // rewards to contract
-        forceWithdrawRewards += Farmable._withdraw(msg.sender, amount, address(this));
+        forceWithdrawRewards += Farmable._withdraw(msg.sender, amount, address(0));
 
         (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
 

@@ -26,6 +26,11 @@ contract ProfitablePool {
             accProfitPerShare += profit * _weiPerShare / totalSupply;
         }
 
+        // gas saving
+        if (accProfitPerShare == account.accProfitPerShare) {
+            return 0;
+        }
+
         // calculate account profit
         accountProfit = account.amount * (accProfitPerShare - account.accProfitPerShare) / _weiPerShare;
 
