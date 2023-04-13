@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 
 import "./Swappable.sol";
 import "./TimeWindow.sol";
+import "./util/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
-contract Pool is Swappable, AccessControlEnumerable {
+contract Pool is Initializable, Swappable, AccessControlEnumerable {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
@@ -36,8 +37,6 @@ contract Pool is Swappable, AccessControlEnumerable {
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
 
-    bool public initialized;
-
     // pegged ETC
     IERC20 public minedToken;
 
@@ -56,9 +55,7 @@ contract Pool is Swappable, AccessControlEnumerable {
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
     ) public {
-        require(!initialized, "initialized already");
-        initialized = true;
-
+        Initializable._initialize();
         Swappable._initialize(router);
 
         minedToken = minedToken_;

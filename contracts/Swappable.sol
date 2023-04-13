@@ -8,7 +8,7 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
-abstract contract Swappable is Ownable {
+contract Swappable is Ownable {
     using SafeERC20 for IERC20;
 
     IUniswapV2Router02 public router;
