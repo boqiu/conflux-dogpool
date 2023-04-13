@@ -19,16 +19,26 @@ contract Swappable is Ownable {
         transferOwnership(msg.sender);
     }
 
+    /**
+     * @dev Allow anyone to deposit native tokens into this contract to provide liquidity.
+     */
     receive() external payable {}
 
-    function withdraw(uint256 amount) public onlyOwner {
+    /**
+     * @dev Allow owner to withdraw `amount` of native tokens to specified `recipient`.
+     */
+    function withdraw(uint256 amount, address payable recipient) public onlyOwner {
         require(amount <= address(this).balance, "balance not enough");
-        payable(msg.sender).transfer(amount);
+        recipient.transfer(amount);
+    }
+
+    function _pairTokenETH(address token) internal view returns (address pair) {
+        pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
+        require(pair != address(0), "pair not found");
     }
 
     function _addLiquidityETH(address token, uint256 amount) internal returns (uint256 amountETH, uint256 liquidity) {
-        address pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
-        require(pair != address(0), "pair not found");
+        address pair = _pairTokenETH(token);
 
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(pair).getReserves();
 
@@ -53,8 +63,7 @@ contract Swappable is Ownable {
     }
 
     function _removeLiquidityETH(address token, uint256 liquidity) internal returns (uint amountToken, uint amountETH) {
-        address pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
-        require(pair != address(0), "pair not found");
+        address pair = _pairTokenETH(token);
 
         uint256 totalLiquidity = IUniswapV2Pair(pair).totalSupply();
         uint256 amountTokenMin = liquidity * IERC20(token).balanceOf(pair) / totalLiquidity;

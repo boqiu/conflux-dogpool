@@ -9,11 +9,9 @@ contract Initializable {
 
     bool public initialized;
 
-    /**
-     * @dev To initialize only once.
-     */
-    function _initialize() internal {
+    modifier onlyInitializeOnce() {
         require(!initialized, "Initializable: initialized already");
+        _;
         initialized = true;
     }
 

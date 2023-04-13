@@ -2,11 +2,12 @@
 pragma solidity ^0.8.0;
 
 import "./Swappable.sol";
+import "./Farmable.sol";
 import "./TimeWindow.sol";
 import "./util/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
-contract Pool is Initializable, Swappable, AccessControlEnumerable {
+contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
@@ -49,14 +50,19 @@ contract Pool is Initializable, Swappable, AccessControlEnumerable {
     // e.g. 20 means 20% ETH bonus
     uint8 public bonusPercentageETH = 20;
 
+    uint256 public forceWithdrawRewards;
+
     function initialize(
-        address router,
+        address swapRouter,
+        address farmController,
         IERC20 minedToken_,
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
-    ) public {
-        Initializable._initialize();
-        Swappable._initialize(router);
+    ) public onlyInitializeOnce {
+        Swappable._initialize(swapRouter);
+
+        address lpToken = Swappable._pairTokenETH(address(minedToken_));
+        Farmable._initialize(farmController, lpToken);
 
         minedToken = minedToken_;
         lockSlotIntervalSecs = lockSlotIntervalSecs_;
@@ -78,10 +84,10 @@ contract Pool is Initializable, Swappable, AccessControlEnumerable {
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        (uint256 amountETH, uint256 liquidity) = _addLiquidityETH(address(minedToken), amount);
+        (uint256 amountETH, uint256 liquidity) = Swappable._addLiquidityETH(address(minedToken), amount);
         emit Deposit(msg.sender, account, amount, amountETH, liquidity);
 
-        // TODO farm in advance to earn PPI
+        Farmable._deposit(account, liquidity);
 
         _balances[account].push(liquidity, lockSlotIntervalSecs, lockWindowSize);
     }
@@ -106,10 +112,12 @@ contract Pool is Initializable, Swappable, AccessControlEnumerable {
             delete _balances[msg.sender];
         }
 
-        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
+        Farmable._withdraw(msg.sender, amount, recipient);
+
+        (uint256 amountToken, uint256 amountETH) = Swappable._removeLiquidityETH(address(minedToken), amount);
 
         if (amountToken > 0) {
-            minedToken.safeTransferFrom(address(this), recipient, amountToken);
+            minedToken.safeTransfer(recipient, amountToken);
         }
 
         uint256 bonusETH = amountETH * bonusPercentageETH / 100;
@@ -123,7 +131,7 @@ contract Pool is Initializable, Swappable, AccessControlEnumerable {
     /**
      * @dev Allow user to force withdraw locked assets without bonus.
      */
-    function forceWithdraw(address payable recipient) public {
+    function forceWithdraw(address recipient) public {
         uint256 amount = _balances[msg.sender].clear();
         if (amount == 0) {
             return;
@@ -131,13 +139,25 @@ contract Pool is Initializable, Swappable, AccessControlEnumerable {
 
         delete _balances[msg.sender];
 
+        // rewards to contract
+        forceWithdrawRewards += Farmable._withdraw(msg.sender, amount, address(this));
+
         (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
 
         if (amountToken > 0) {
-            minedToken.safeTransferFrom(address(this), recipient, amountToken);
+            minedToken.safeTransfer(recipient, amountToken);
         }
 
         emit ForceWithdraw(msg.sender, recipient, amount, amountToken, amountETH);
+    }
+
+    /**
+     * @dev Allow owner to withdraw rewards from user force withdrawal.
+     */
+    function withdrawRewards(uint256 amount, address recipient) public onlyOwner {
+        require(amount <= forceWithdrawRewards, "insufficient rewards");
+        forceWithdrawRewards -= amount;
+        Farmable.rewardToken.safeTransfer(recipient, amount);
     }
 
 }
