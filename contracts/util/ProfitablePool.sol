@@ -21,51 +21,44 @@ contract ProfitablePool {
     /**
      * @dev Update profit per share since last user operation.
      */
-    function _updateProfit(uint256 profit) private {
+    function _updateProfit(uint256 profit, AccountInfo storage account) private returns (uint256 accountProfit) {
         if (profit > 0 && totalSupply > 0) {
             accProfitPerShare += profit * _weiPerShare / totalSupply;
         }
+
+        // calculate account profit
+        accountProfit = account.amount * (accProfitPerShare - account.accProfitPerShare) / _weiPerShare;
+
+        account.accProfitPerShare = accProfitPerShare;
     }
 
     /**
      * @dev Deposits `amount` of tokens for specified `account` with desired `profit` since last user operation.
      */
     function _deposit(uint256 profit, address account, uint256 amount) internal virtual returns (uint256 accountProfit) {
-        _updateProfit(profit);
-
         AccountInfo storage info = accountInfos[account];
 
-        // calculate account profit
-        accountProfit = info.amount * (accProfitPerShare - info.accProfitPerShare) / _weiPerShare;
+        accountProfit = _updateProfit(profit, info);
 
-        // update state
         if (amount > 0) {
             totalSupply += amount;
             info.amount += amount;
         }
-
-        info.accProfitPerShare = accProfitPerShare;
     }
 
     /**
      * @dev Withdraw `amount` of tokens for specified `account` with desired `profit` since last user operation.
      */
     function _withdraw(uint256 profit, address account, uint256 amount) internal virtual returns (uint256 accountProfit) {
-        _updateProfit(profit);
-
         AccountInfo storage info = accountInfos[account];
         require(amount <= info.amount, "insufficient balance");
 
-        // calculate account profit
-        accountProfit = info.amount * (accProfitPerShare - info.accProfitPerShare) / _weiPerShare;
+        accountProfit = _updateProfit(profit, info);
 
-        // update state
         if (amount > 0) {
             totalSupply -= amount;
             info.amount -= amount;
         }
-
-        info.accProfitPerShare = accProfitPerShare;
     }
 
 }
