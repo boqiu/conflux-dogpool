@@ -17,17 +17,21 @@ library TimeWindow {
         mapping(uint256 => uint256) expirationTimes;
     }
 
+    function empty(TimeoutWindow storage window) internal view returns (bool) {
+        return window.start == window.end;
+    }
+
     function expired(TimeoutWindow storage window, uint256 index) internal view returns (bool) {
-        require(index >= window.start && index < window.end, "index out of bound");
+        require(index >= window.start && index < window.end, "TimeoutWindow: index out of bound");
         return window.expirationTimes[index] <= block.timestamp;
     }
 
     function pushBackIfEnded(TimeoutWindow storage window, uint256 slotIntervalSecs, uint256 numSlots) internal returns (uint256, bool) {
-        require(slotIntervalSecs > 0, "slot interval is zero");
-        require(numSlots > 0, "num slots is zero");
+        require(slotIntervalSecs > 0, "TimeoutWindow: slot interval is zero");
+        require(numSlots > 0, "TimeoutWindow: num slots is zero");
 
         // the `back` slot not ended yet
-        if (window.start < window.end && window.endTimes[window.end] > block.timestamp) {
+        if (!empty(window) && window.endTimes[window.end - 1] > block.timestamp) {
             return (window.end - 1, false);
         }
 
@@ -40,21 +44,23 @@ library TimeWindow {
         return (window.end - 1, true);
     }
 
-    function popFront(TimeoutWindow storage window) internal returns (uint256, bool) {
-        uint256 front = window.start;
-        if (front == window.end) {
-            return (0, false);
-        }
-
+    function _popFront(TimeoutWindow storage window) private returns (uint256 front) {
+        front = window.start;
         delete window.endTimes[front];
         delete window.expirationTimes[front];
         window.start++;
+    }
 
-        return (front, true);
+    function popFront(TimeoutWindow storage window) internal returns (uint256, bool) {
+        if (empty(window)) {
+            return (0, false);
+        }
+
+        return (_popFront(window), true);
     }
 
     function popFrontIfExpired(TimeoutWindow storage window) internal returns (uint256, bool) {
-        if (!expired(window, window.start)) {
+        if (empty(window) || !expired(window, window.start)) {
             return (0, false);
         }
 
@@ -62,7 +68,7 @@ library TimeWindow {
     }
 
     function tryClear(TimeoutWindow storage window) internal returns (bool) {
-        if (window.start < window.end) {
+        if (!empty(window)) {
             return false;
         }
 

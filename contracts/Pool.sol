@@ -72,7 +72,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
     }
 
     function setBonusPercentageETH(uint8 value) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(value <= 100, "value out of bound");
+        require(value <= 100, "Pool: value out of bound");
         bonusPercentageETH = value;
     }
 
@@ -80,7 +80,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
      * @dev Dog pool operator deposits ETC into pool for specified `account`.
      */
     function deposit(uint256 amount, address account) public onlyRole(DEPOSIT_ROLE) {
-        require(amount > 0, "amount is zero");
+        require(amount > 0, "Pool: amount is zero");
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -155,7 +155,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
      * @dev Allow owner to withdraw rewards from user force withdrawal.
      */
     function withdrawRewards(uint256 amount, address recipient) public onlyOwner {
-        require(amount <= forceWithdrawRewards, "insufficient rewards");
+        require(amount <= forceWithdrawRewards, "Pool: insufficient rewards");
         forceWithdrawRewards -= amount;
         Farmable.rewardToken.safeTransfer(recipient, amount);
     }

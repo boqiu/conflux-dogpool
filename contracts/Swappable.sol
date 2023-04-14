@@ -27,14 +27,14 @@ contract Swappable is Ownable {
     /**
      * @dev Allow owner to withdraw `amount` of native tokens to specified `recipient`.
      */
-    function withdraw(uint256 amount, address payable recipient) public onlyOwner {
-        require(amount <= address(this).balance, "balance not enough");
+    function withdrawETH(uint256 amount, address payable recipient) public onlyOwner {
+        require(amount <= address(this).balance, "Swappable: balance not enough");
         recipient.transfer(amount);
     }
 
     function _pairTokenETH(address token) internal view returns (address pair) {
         pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
-        require(pair != address(0), "pair not found");
+        require(pair != address(0), "Swappable: pair not found");
     }
 
     function _addLiquidityETH(address token, uint256 amount) internal returns (uint256 amountETH, uint256 liquidity) {
@@ -49,7 +49,7 @@ contract Swappable is Ownable {
             amountETHDesired = amount * reserve0 / reserve1;
         }
 
-        require(amountETHDesired <= address(this).balance, "balance not enough");
+        require(amountETHDesired <= address(this).balance, "Swappable: balance not enough");
 
         IERC20(token).safeApprove(address(router), amount);
 
@@ -58,8 +58,8 @@ contract Swappable is Ownable {
             token, amount, amount, amountETHDesired, address(this), block.timestamp
         );
 
-        require(amountToken == amount, "token amount mismatch");
-        require(amountETH == amountETHDesired, "ETH amount mismatch");
+        require(amountToken == amount, "Swappable: token amount mismatch");
+        require(amountETH == amountETHDesired, "Swappable: ETH amount mismatch");
     }
 
     function _removeLiquidityETH(address token, uint256 liquidity) internal returns (uint amountToken, uint amountETH) {
@@ -75,8 +75,8 @@ contract Swappable is Ownable {
             pair, liquidity, amountTokenMin, amountETHMin, address(this), block.timestamp
         );
 
-        require(amountToken == amountTokenMin, "token amount mismatch");
-        require(amountETH == amountETHMin, "ETH amount mismatch");
+        require(amountToken == amountTokenMin, "Swappable: token amount mismatch");
+        require(amountETH == amountETHMin, "Swappable: ETH amount mismatch");
     }
 
 }

@@ -35,7 +35,7 @@ contract Farmable is RewardablePool {
             }
         }
 
-        require(address(lpToken) != address(0), "LP token not found");
+        require(address(lpToken) != address(0), "Farmable: LP token not found");
     }
 
     /**

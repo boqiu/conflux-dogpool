@@ -62,7 +62,7 @@ contract RewardablePool {
      */
     function _withdraw(uint256 reward, address account, uint256 amount) internal virtual returns (uint256 accountReward) {
         AccountInfo storage info = accountInfos[account];
-        require(amount <= info.amount, "insufficient balance");
+        require(amount <= info.amount, "RewardablePool: insufficient balance");
 
         accountReward = _updateReward(reward, info);
 
