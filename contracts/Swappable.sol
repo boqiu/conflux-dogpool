@@ -72,7 +72,7 @@ contract Swappable is Ownable {
         IERC20(pair).safeApprove(address(router), liquidity);
 
         (amountToken, amountETH) = router.removeLiquidityETH(
-            pair, liquidity, amountTokenMin, amountETHMin, address(this), block.timestamp
+            token, liquidity, amountTokenMin, amountETHMin, address(this), block.timestamp
         );
 
         require(amountToken == amountTokenMin, "Swappable: token amount mismatch");
