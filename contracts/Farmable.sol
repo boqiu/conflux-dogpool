@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 import "./IFarm.sol";
-import "./util/ProfitablePool.sol";
+import "./util/RewardablePool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract Farmable is ProfitablePool {
+contract Farmable is RewardablePool {
     using SafeERC20 for IERC20;
 
     event Reward(address indexed account, address indexed recipient, uint256 amount);
@@ -22,7 +22,7 @@ contract Farmable is ProfitablePool {
         farm = IFarm(farm_);
         rewardToken = IERC20(farm.ppi());
 
-        ProfitablePool._initialize(IERC20Metadata(address(rewardToken)));
+        RewardablePool._initialize(IERC20Metadata(address(rewardToken)));
 
         // initialize pool id
         uint256 len = farm.poolLength();
@@ -39,37 +39,37 @@ contract Farmable is ProfitablePool {
     }
 
     /**
-     * @dev Query the rewards of specified `account`.
+     * @dev Query the reward of specified `account`.
      */
-    function rewardsOf(address account) public returns (uint256) {
-        uint256 profit = farm.deposit(poolId, 0);
-        return ProfitablePool._deposit(profit, account, 0);
+    function rewardOf(address account) public returns (uint256) {
+        uint256 reward = farm.deposit(poolId, 0);
+        return RewardablePool._deposit(reward, account, 0);
     }
 
-    function _deposit(address account, uint256 liquidity) internal returns (uint256 accountProfit) {
+    function _deposit(address account, uint256 liquidity) internal returns (uint256 accountReward) {
         if (liquidity > 0) {
             lpToken.safeApprove(address(farm), liquidity);
         }
 
-        uint256 profit = farm.deposit(poolId, liquidity);
+        uint256 reward = farm.deposit(poolId, liquidity);
 
-        accountProfit = ProfitablePool._deposit(profit, account, liquidity);
-        if (accountProfit > 0) {
-            rewardToken.safeTransfer(account, accountProfit);
-            emit Reward(account, account, accountProfit);
+        accountReward = RewardablePool._deposit(reward, account, liquidity);
+        if (accountReward > 0) {
+            rewardToken.safeTransfer(account, accountReward);
+            emit Reward(account, account, accountReward);
         }
     }
 
-    function _withdraw(address account, uint256 liquidity, address profitRecipient) internal returns (uint256 accountProfit) {
-        uint256 profit = farm.withdraw(poolId, liquidity);
+    function _withdraw(address account, uint256 liquidity, address rewardRecipient) internal returns (uint256 accountReward) {
+        uint256 reward = farm.withdraw(poolId, liquidity);
 
-        accountProfit = ProfitablePool._withdraw(profit, account, liquidity);
-        if (accountProfit > 0) {
-            if (profitRecipient != address(0)) {
-                rewardToken.safeTransfer(profitRecipient, accountProfit);
+        accountReward = RewardablePool._withdraw(reward, account, liquidity);
+        if (accountReward > 0) {
+            if (rewardRecipient != address(0)) {
+                rewardToken.safeTransfer(rewardRecipient, accountReward);
             }
 
-            emit Reward(account, profitRecipient, accountProfit);
+            emit Reward(account, rewardRecipient, accountReward);
         }
     }
 
