@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "./IFarm.sol";
 import "./util/ProfitablePool.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Farmable is ProfitablePool {
@@ -20,6 +21,8 @@ contract Farmable is ProfitablePool {
     function _initialize(address farm_, address lpToken_) internal {
         farm = IFarm(farm_);
         rewardToken = IERC20(farm.ppi());
+
+        ProfitablePool._initialize(IERC20Metadata(address(rewardToken)));
 
         // initialize pool id
         uint256 len = farm.poolLength();

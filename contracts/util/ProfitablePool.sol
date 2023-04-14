@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
 /**
  * @dev This contract aims to distribute profit to users based on the amount of staked tokens.
  */
@@ -17,6 +19,10 @@ contract ProfitablePool {
     uint256 public accProfitPerShare;   // accumulative profit per share
 
     uint256 internal _weiPerShare = 1e18;
+
+    function _initialize(IERC20Metadata token) internal {
+        _weiPerShare = 10 ** token.decimals();
+    }
 
     /**
      * @dev Update profit per share since last user operation.
