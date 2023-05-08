@@ -5,36 +5,13 @@ import "./Swappable.sol";
 import "./Farmable.sol";
 import "./TimeWindow.sol";
 import "./util/Initializable.sol";
+import "./IPool.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
+contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ownable, IPool {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
-
-    event Deposit(
-        address indexed operator,
-        address indexed account,
-        uint256 amountToken,
-        uint256 amountETH,
-        uint256 liquidity
-    );
-
-    event Withdraw(
-        address indexed operator,
-        address indexed recipient,
-        uint256 liquidity,
-        uint256 amountToken,
-        uint256 amountETH,
-        uint256 bonusETH
-    );
-
-    event ForceWithdraw(
-        address indexed operator,
-        address indexed recipient,
-        uint256 liquidity,
-        uint256 amountToken,
-        uint256 amountETH
-    );
 
     bytes32 public constant DEPOSIT_ROLE = keccak256("DEPOSIT_ROLE");
 
@@ -47,8 +24,8 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
-    // e.g. 20 means 20% ETH bonus
-    uint8 public bonusPercentageETH = 20;
+    // e.g. 10 means 10% ETH bonus
+    uint8 public bonusPercentageETH = 10;
 
     uint256 public forceWithdrawRewards;
 
@@ -69,17 +46,14 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
         lockWindowSize = lockWindowSize_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    }
 
-    function setBonusPercentageETH(uint8 value) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(value <= 100, "Pool: value out of bound");
-        bonusPercentageETH = value;
+        transferOwnership(msg.sender);
     }
 
     /**
      * @dev Dog pool operator deposits ETC into pool for specified `account`.
      */
-    function deposit(uint256 amount, address account) public onlyRole(DEPOSIT_ROLE) {
+    function deposit(uint256 amount, address account) public override onlyRole(DEPOSIT_ROLE) {
         require(amount > 0, "Pool: amount is zero");
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -92,17 +66,21 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
         _balances[account].push(liquidity, lockSlotIntervalSecs, lockWindowSize);
     }
 
-    function balanceOf(address account)
-        public view
-        returns (uint256 totalBalance, uint256 unlockedBalance, TimeWindow.LockedBalance[] memory lockedBalances)
-    {
+    /**
+     * @dev Query account balance, including locked and unlocked balances.
+     */
+    function balanceOf(address account) public view override returns (
+        uint256 totalBalance,
+        uint256 unlockedBalance,
+        TimeWindow.LockedBalance[] memory lockedBalances
+    ) {
         return _balances[account].balances();
     }
 
     /**
      * @dev User withdraw unlocked assets.
      */
-    function withdraw(address payable recipient) public {
+    function withdraw(address payable recipient) public override {
         uint256 amount = _balances[msg.sender].pop();
         if (amount == 0) {
             return;
@@ -131,7 +109,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
     /**
      * @dev Allow user to force withdraw locked assets without bonus.
      */
-    function forceWithdraw(address recipient) public {
+    function forceWithdraw(address recipient) public override {
         uint256 amount = _balances[msg.sender].clear();
         if (amount == 0) {
             return;
@@ -149,6 +127,33 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable {
         }
 
         emit ForceWithdraw(msg.sender, recipient, amount, amountToken, amountETH);
+    }
+
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Owner functions
+    //
+    /////////////////////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * @dev Allow owner/anyone to deposit native tokens into this contract to provide liquidity.
+     */
+    receive() external payable {}
+
+    /**
+     * @dev Allow owner to set bonus ratio.
+     */
+    function setBonusPercentageETH(uint8 value) public onlyOwner {
+        require(value <= 100, "Pool: value out of bound");
+        bonusPercentageETH = value;
+    }
+
+    /**
+     * @dev Allow owner to withdraw `amount` of native tokens to specified `recipient`.
+     */
+    function withdrawETH(uint256 amount, address payable recipient) public onlyOwner {
+        require(amount <= address(this).balance, "Swappable: balance not enough");
+        recipient.transfer(amount);
     }
 
     /**

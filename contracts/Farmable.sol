@@ -15,7 +15,7 @@ contract Farmable is RewardablePool {
     IFarm public farm;
     IERC20 public rewardToken;      // e.g. PPI
 
-    IERC20 public lpToken;          // e.g. ETC-CFX
+    IERC20 public lpToken;          // e.g. ETC-ETH
     uint256 public poolId;          // pool index for deposit/withdraw
 
     function _initialize(address farm_, address lpToken_) internal {

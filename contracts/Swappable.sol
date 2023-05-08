@@ -1,35 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
-contract Swappable is Ownable {
+contract Swappable {
     using SafeERC20 for IERC20;
 
     IUniswapV2Router02 public router;
 
     function _initialize(address router_) internal {
         router = IUniswapV2Router02(router_);
-
-        transferOwnership(msg.sender);
-    }
-
-    /**
-     * @dev Allow anyone to deposit native tokens into this contract to provide liquidity.
-     */
-    receive() external payable {}
-
-    /**
-     * @dev Allow owner to withdraw `amount` of native tokens to specified `recipient`.
-     */
-    function withdrawETH(uint256 amount, address payable recipient) public onlyOwner {
-        require(amount <= address(this).balance, "Swappable: balance not enough");
-        recipient.transfer(amount);
     }
 
     function _pairTokenETH(address token) internal view returns (address pair) {
