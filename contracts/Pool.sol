@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 import "./Swappable.sol";
 import "./Farmable.sol";
 import "./TimeWindow.sol";
-import "./util/Initializable.sol";
 import "./IPool.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ownable, IPool {
     using TimeWindow for TimeWindow.BalanceWindow;
@@ -29,13 +29,17 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ow
 
     uint256 public forceWithdrawRewards;
 
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address swapRouter,
         address farmController,
         IERC20 minedToken_,
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
-    ) public onlyInitializeOnce {
+    ) public initializer {
         Swappable._initialize(swapRouter);
 
         address lpToken = Swappable._pairTokenETH(address(minedToken_));
