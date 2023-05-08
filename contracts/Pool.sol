@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Swappable.sol";
+import "./SwappableV2.sol";
 import "./Farmable.sol";
 import "./TimeWindow.sol";
 import "./IPool.sol";
@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ownable, IPool {
+contract Pool is Initializable, SwappableV2, Farmable, AccessControlEnumerable, Ownable, IPool {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
@@ -40,9 +40,9 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ow
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
     ) public initializer {
-        Swappable._initialize(swapRouter);
+        SwappableV2._initialize(swapRouter);
 
-        address lpToken = Swappable._pairTokenETH(address(minedToken_));
+        address lpToken = SwappableV2._pairTokenETH(address(minedToken_));
         Farmable._initialize(farmController, lpToken);
 
         minedToken = minedToken_;
@@ -62,7 +62,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ow
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        (uint256 amountETH, uint256 liquidity) = Swappable._addLiquidityETH(address(minedToken), amount);
+        (uint256 amountETH, uint256 liquidity) = SwappableV2._addLiquidityETH(address(minedToken), amount);
         emit Deposit(msg.sender, account, amount, amountETH, liquidity);
 
         Farmable._deposit(account, liquidity);
@@ -96,7 +96,7 @@ contract Pool is Initializable, Swappable, Farmable, AccessControlEnumerable, Ow
 
         Farmable._withdraw(msg.sender, amount, recipient);
 
-        (uint256 amountToken, uint256 amountETH) = Swappable._removeLiquidityETH(address(minedToken), amount);
+        (uint256 amountToken, uint256 amountETH) = SwappableV2._removeLiquidityETH(address(minedToken), amount);
 
         if (amountToken > 0) {
             minedToken.safeTransfer(recipient, amountToken);

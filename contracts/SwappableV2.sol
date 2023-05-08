@@ -7,17 +7,20 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 
-contract Swappable {
+/**
+ * @dev Integrates with Swappi (Uniswap V2) to provide liquidity to earn transaction fees.
+ */
+contract SwappableV2 {
     using SafeERC20 for IERC20;
 
-    IUniswapV2Router02 public router;
+    IUniswapV2Router02 public v2Router;
 
     function _initialize(address router_) internal {
-        router = IUniswapV2Router02(router_);
+        v2Router = IUniswapV2Router02(router_);
     }
 
     function _pairTokenETH(address token) internal view returns (address pair) {
-        pair = IUniswapV2Factory(router.factory()).getPair(token, router.WETH());
+        pair = IUniswapV2Factory(v2Router.factory()).getPair(token, v2Router.WETH());
         require(pair != address(0), "Swappable: pair not found");
     }
 
@@ -35,10 +38,10 @@ contract Swappable {
 
         require(amountETHDesired <= address(this).balance, "Swappable: balance not enough");
 
-        IERC20(token).safeApprove(address(router), amount);
+        IERC20(token).safeApprove(address(v2Router), amount);
 
         uint256 amountToken = 0;
-        (amountToken, amountETH, liquidity) = router.addLiquidityETH{value: amountETHDesired}(
+        (amountToken, amountETH, liquidity) = v2Router.addLiquidityETH{value: amountETHDesired}(
             token, amount, amount, amountETHDesired, address(this), block.timestamp
         );
 
@@ -51,11 +54,11 @@ contract Swappable {
 
         uint256 totalLiquidity = IUniswapV2Pair(pair).totalSupply();
         uint256 amountTokenMin = liquidity * IERC20(token).balanceOf(pair) / totalLiquidity;
-        uint256 amountETHMin = liquidity * IERC20(router.WETH()).balanceOf(pair) / totalLiquidity;
+        uint256 amountETHMin = liquidity * IERC20(v2Router.WETH()).balanceOf(pair) / totalLiquidity;
 
-        IERC20(pair).safeApprove(address(router), liquidity);
+        IERC20(pair).safeApprove(address(v2Router), liquidity);
 
-        (amountToken, amountETH) = router.removeLiquidityETH(
+        (amountToken, amountETH) = v2Router.removeLiquidityETH(
             token, liquidity, amountTokenMin, amountETHMin, address(this), block.timestamp
         );
 
