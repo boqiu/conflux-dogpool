@@ -4,32 +4,32 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
- * @dev This contract aims to distribute reward to users based on the amount of staked tokens.
+ * @dev This contract aims to distribute reward to users based on the staked shares.
  */
 contract RewardablePool {
 
     struct AccountInfo {
-        uint256 amount;                 // token amount in pool
+        uint256 shares;                 // shares in pool
         uint256 accRewardPerShare;      // accumulative reward per share
     }
 
     mapping(address => AccountInfo) public accountInfos;
 
-    uint256 public totalSupply;         // total amount of staked tokens in pool
+    uint256 public totalShares;         // total shares in pool
     uint256 public accRewardPerShare;   // accumulative reward per share
 
     uint256 internal _weiPerShare = 1e18;
 
-    function _initialize(IERC20Metadata token) internal {
-        _weiPerShare = 10 ** token.decimals();
+    function _initialize(IERC20Metadata shareToken) internal {
+        _weiPerShare = 10 ** shareToken.decimals();
     }
 
     /**
      * @dev Update reward per share since last user operation.
      */
     function _updateReward(uint256 reward, AccountInfo storage account) private returns (uint256 accountReward) {
-        if (reward > 0 && totalSupply > 0) {
-            accRewardPerShare += reward * _weiPerShare / totalSupply;
+        if (reward > 0 && totalShares > 0) {
+            accRewardPerShare += reward * _weiPerShare / totalShares;
         }
 
         // gas saving
@@ -38,37 +38,37 @@ contract RewardablePool {
         }
 
         // calculate account reward
-        accountReward = account.amount * (accRewardPerShare - account.accRewardPerShare) / _weiPerShare;
+        accountReward = account.shares * (accRewardPerShare - account.accRewardPerShare) / _weiPerShare;
 
         account.accRewardPerShare = accRewardPerShare;
     }
 
     /**
-     * @dev Deposits `amount` of tokens for specified `account` with desired `reward` since last user operation.
+     * @dev Deposits `shares` of tokens for specified `account` with desired `reward` since last user operation.
      */
-    function _deposit(uint256 reward, address account, uint256 amount) internal virtual returns (uint256 accountReward) {
+    function _deposit(uint256 reward, address account, uint256 shares) internal virtual returns (uint256 accountReward) {
         AccountInfo storage info = accountInfos[account];
 
         accountReward = _updateReward(reward, info);
 
-        if (amount > 0) {
-            totalSupply += amount;
-            info.amount += amount;
+        if (shares > 0) {
+            totalShares += shares;
+            info.shares += shares;
         }
     }
 
     /**
-     * @dev Withdraw `amount` of tokens for specified `account` with desired `reward` since last user operation.
+     * @dev Withdraw `shares` of tokens for specified `account` with desired `reward` since last user operation.
      */
-    function _withdraw(uint256 reward, address account, uint256 amount) internal virtual returns (uint256 accountReward) {
+    function _withdraw(uint256 reward, address account, uint256 shares) internal virtual returns (uint256 accountReward) {
         AccountInfo storage info = accountInfos[account];
-        require(amount <= info.amount, "RewardablePool: insufficient balance");
+        require(shares <= info.shares, "RewardablePool: insufficient balance");
 
         accountReward = _updateReward(reward, info);
 
-        if (amount > 0) {
-            totalSupply -= amount;
-            info.amount -= amount;
+        if (shares > 0) {
+            totalShares -= shares;
+            info.shares -= shares;
         }
     }
 
