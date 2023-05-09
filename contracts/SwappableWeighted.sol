@@ -19,6 +19,7 @@ contract SwappableWeighted {
     }
 
     function _addLiquidityETH(address token, uint256 amount) internal returns (uint amountETH, uint liquidity) {
+        // TODO always add liquidity with fixed ratio or dynamic ratio?
         uint256 amountETHDesired = SwappiLibrary.getAmountETH(address(balancerRouter), token, amount);
 
         IERC20(token).safeApprove(address(balancerRouter), amount);
@@ -35,7 +36,6 @@ contract SwappableWeighted {
 
     function _removeLiquidityETH(address token, uint256 liquidity) internal returns (uint amountToken, uint amountETH) {
         address pair = SwappiLibrary.getPairETH(address(balancerRouter), token);
-
         IERC20(pair).safeApprove(address(balancerRouter), liquidity);
 
         (amountToken, amountETH) = balancerRouter.removeLiquidityETH(

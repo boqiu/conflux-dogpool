@@ -5,7 +5,6 @@ import "./swappi/SwappiLibrary.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 /**
  * @dev Integrates with Swappi (Uniswap V2) to provide liquidity to earn transaction fees.
@@ -35,19 +34,11 @@ contract SwappableV2 {
 
     function _removeLiquidityETH(address token, uint256 liquidity) internal returns (uint amountToken, uint amountETH) {
         address pair = SwappiLibrary.getPairETH(address(v2Router), token);
-
-        uint256 totalLiquidity = IUniswapV2Pair(pair).totalSupply();
-        uint256 amountTokenMin = liquidity * IERC20(token).balanceOf(pair) / totalLiquidity;
-        uint256 amountETHMin = liquidity * IERC20(v2Router.WETH()).balanceOf(pair) / totalLiquidity;
-
         IERC20(pair).safeApprove(address(v2Router), liquidity);
 
         (amountToken, amountETH) = v2Router.removeLiquidityETH(
-            token, liquidity, amountTokenMin, amountETHMin, address(this), block.timestamp
+            token, liquidity, 0, 0, address(this), block.timestamp
         );
-
-        require(amountToken == amountTokenMin, "SwappableV2: token amount mismatch");
-        require(amountETH == amountETHMin, "SwappableV2: ETH amount mismatch");
     }
 
 }
