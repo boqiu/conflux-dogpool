@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity >=0.6.2;
 
 interface ISwappiRouter01 {
     function factory() external pure returns (address);
@@ -10,6 +9,13 @@ interface ISwappiRouter01 {
         uint256[2] normalizedWeights;
         uint amountADesired;
         uint amountBDesired;
+        address to;    
+    }
+    struct addLiquidityParamForOneToken {
+        address tokenA;
+        address tokenB;
+        uint liquidity;
+        uint tokenIndex;
         uint amountAMin;
         uint amountBMin;
         address to;    
@@ -29,8 +35,7 @@ interface ISwappiRouter01 {
         uint256[2] calldata normalizedWeights,
         uint amountADesired,
         uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin,
+        uint lquidityMin,
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB, uint liquidity);
@@ -38,8 +43,7 @@ interface ISwappiRouter01 {
         address token,
         uint256[2] calldata normalizedWeights,
         uint amountTokenDesired,
-        uint amountTokenMin,
-        uint amountETHMin,
+        uint lquidityMin,
         address to,
         uint deadline
     ) external payable returns (uint amountToken, uint amountETH, uint liquidity);

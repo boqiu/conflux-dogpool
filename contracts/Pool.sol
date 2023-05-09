@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./SwappableV2.sol";
-import "./Farmable.sol";
-import "./TimeWindow.sol";
 import "./IPool.sol";
+// import "./SwappableV2.sol";
+import "./SwappableWeighted.sol";
+import "./Farmable.sol";
+import "./swappi/SwappiLibrary.sol";
+import "./TimeWindow.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract Pool is Initializable, SwappableV2, Farmable, AccessControlEnumerable, Ownable, IPool {
+contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumerable, Ownable, IPool {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
@@ -34,18 +36,18 @@ contract Pool is Initializable, SwappableV2, Farmable, AccessControlEnumerable, 
     }
 
     function initialize(
-        address swapRouter,
+        address router,
         address farmController,
-        IERC20 minedToken_,
+        address minedToken_,
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
     ) public initializer {
-        SwappableV2._initialize(swapRouter);
+        SwappableWeighted._initialize(router);
 
-        address lpToken = SwappableV2._pairTokenETH(address(minedToken_));
+        address lpToken = SwappiLibrary.getPairETH(router, minedToken_);
         Farmable._initialize(farmController, lpToken);
 
-        minedToken = minedToken_;
+        minedToken = IERC20(minedToken_);
         lockSlotIntervalSecs = lockSlotIntervalSecs_;
         lockWindowSize = lockWindowSize_;
 
@@ -62,7 +64,7 @@ contract Pool is Initializable, SwappableV2, Farmable, AccessControlEnumerable, 
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        (uint256 amountETH, uint256 liquidity) = SwappableV2._addLiquidityETH(address(minedToken), amount);
+        (uint256 amountETH, uint256 liquidity) = SwappableWeighted._addLiquidityETH(address(minedToken), amount);
         emit Deposit(msg.sender, account, amount, amountETH, liquidity);
 
         Farmable._deposit(account, liquidity);
@@ -96,7 +98,7 @@ contract Pool is Initializable, SwappableV2, Farmable, AccessControlEnumerable, 
 
         Farmable._withdraw(msg.sender, amount, recipient);
 
-        (uint256 amountToken, uint256 amountETH) = SwappableV2._removeLiquidityETH(address(minedToken), amount);
+        (uint256 amountToken, uint256 amountETH) = SwappableWeighted._removeLiquidityETH(address(minedToken), amount);
 
         if (amountToken > 0) {
             minedToken.safeTransfer(recipient, amountToken);
