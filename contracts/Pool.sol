@@ -77,61 +77,78 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
         return _balances[account].balances();
     }
 
-    function _removeLiquidityETH(address token, uint256 liquidity) internal virtual returns (uint256 amountToken, uint256 amountETH);
+    function _removeLiquidityETH(
+        address token,
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        uint256 deadline
+    ) internal virtual returns (uint256 amountToken, uint256 amountETH);
 
     /**
      * @dev User withdraw unlocked assets.
      */
-    function withdraw(address payable recipient) public override {
-        require(recipient != address(0), "Pool: recipient is empty address");
+    function withdraw(
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address payable to,
+        uint256 deadline
+    ) public override {
+        require(liquidity > 0, "Pool: liquidity is zero");
 
-        uint256 amount = _balances[msg.sender].pop();
-        if (amount == 0) {
-            return;
-        }
+        _balances[msg.sender].pop(liquidity);
 
         if (_balances[msg.sender].tryClear()) {
             delete _balances[msg.sender];
         }
 
-        Farmable._withdraw(msg.sender, amount, recipient);
+        Farmable._withdraw(msg.sender, liquidity, to);
 
-        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
+        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(
+            address(minedToken), liquidity, amountTokenMin, amountETHMin, deadline
+        );
 
         if (amountToken > 0) {
-            minedToken.safeTransfer(recipient, amountToken);
+            minedToken.safeTransfer(to, amountToken);
         }
 
         if (amountETH > 0) {
-            recipient.transfer(amountETH);
+            to.transfer(amountETH);
         }
 
-        emit Withdraw(msg.sender, recipient, amount, amountToken, amountETH);
+        emit Withdraw(msg.sender, to, liquidity, amountToken, amountETH);
     }
 
     /**
      * @dev Allow user to force withdraw locked assets without bonus.
      */
-    function forceWithdraw(address recipient) public override {
-        require(recipient != address(0), "Pool: recipient is empty address");
+    function forceWithdraw(
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) public override {
+        require(liquidity > 0, "Pool: liquidity is zero");
 
         uint256 amount = _balances[msg.sender].clear();
-        if (amount == 0) {
-            return;
-        }
+        require(liquidity == amount, "Pool: liquidity mismatch");
 
         delete _balances[msg.sender];
 
         // rewards to contract
-        Farmable._withdraw(msg.sender, amount, address(0));
+        Farmable._withdraw(msg.sender, liquidity, address(0));
 
-        (uint256 amountToken,) = _removeLiquidityETH(address(minedToken), amount);
+        (uint256 amountToken,) = _removeLiquidityETH(
+            address(minedToken), liquidity, amountTokenMin, amountETHMin, deadline
+        );
 
         if (amountToken > 0) {
-            minedToken.safeTransfer(recipient, amountToken);
+            minedToken.safeTransfer(to, amountToken);
         }
 
-        emit ForceWithdraw(msg.sender, recipient, amount, amountToken);
+        emit ForceWithdraw(msg.sender, to, amount, amountToken);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -150,7 +167,6 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      */
     function withdrawETH(uint256 amount, address payable recipient) public onlyOwner {
         require(amount <= address(this).balance, "Pool: balance not enough");
-        require(recipient != address(0), "Pool: recipient is empty address");
         recipient.transfer(amount);
     }
 
@@ -159,7 +175,6 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      */
     function withdrawRewards(uint256 amount, address recipient) public onlyOwner {
         require(amount <= forceWithdrawRewards, "Pool: insufficient rewards");
-        require(recipient != address(0), "Pool: recipient is empty address");
         forceWithdrawRewards -= amount;
         Farmable.rewardToken.safeTransfer(recipient, amount);
     }

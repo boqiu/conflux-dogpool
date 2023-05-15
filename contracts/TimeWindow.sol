@@ -86,7 +86,9 @@ library TimeWindow {
         uint256 expiredBalance;             // expired balance
     }
 
-    function _expire(BalanceWindow storage window, bool updateExpiredBalance) private returns (uint256 expiredBalance) {
+    function _expire(BalanceWindow storage window) private {
+        uint256 expiredBalance = 0;
+
         while (true) {
             (uint256 front, bool removed) = popFrontIfExpired(window.timeouts);
             if (!removed) {
@@ -97,14 +99,14 @@ library TimeWindow {
             delete window.slots[front];
         }
 
-        if (expiredBalance > 0 && updateExpiredBalance) {
+        if (expiredBalance > 0) {
             window.expiredBalance += expiredBalance;
         }
     }
 
     function push(BalanceWindow storage window, uint256 amount, uint256 slotIntervalSecs, uint256 numSlots) internal {
         // gc to avoid long array
-        _expire(window, true);
+        _expire(window);
 
         (uint256 back, bool added) = pushBackIfEnded(window.timeouts, slotIntervalSecs, numSlots);
         if (added) {
@@ -115,15 +117,30 @@ library TimeWindow {
     }
 
     function pop(BalanceWindow storage window) internal returns (uint256 expiredBalance) {
-        expiredBalance = _expire(window, false);
-        expiredBalance += window.expiredBalance;
+        _expire(window);
+
+        expiredBalance = window.expiredBalance;
 
         if (expiredBalance > 0) {
             window.expiredBalance = 0;
         }
     }
 
+    function pop(BalanceWindow storage window, uint256 amount) internal {
+        _expire(window);
+
+        require(amount <= window.expiredBalance, "BalanceWindow: unlocked balance not enough");
+
+        if (amount > 0) {
+            window.expiredBalance -= amount;
+        }
+    }
+
     function tryClear(BalanceWindow storage window) internal returns (bool) {
+        if (window.expiredBalance > 0) {
+            return false;
+        }
+
         return tryClear(window.timeouts);
     }
 

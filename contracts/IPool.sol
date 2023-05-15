@@ -36,7 +36,20 @@ interface IPool {
         TimeWindow.LockedBalance[] memory lockedBalances
     );
 
-    function withdraw(address payable recipient) external;
-    function forceWithdraw(address recipient) external;
+    function withdraw(
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address payable to,
+        uint256 deadline
+    ) external;
+
+    function forceWithdraw(
+        uint256 liquidity,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) external;
 
 }

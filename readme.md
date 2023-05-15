@@ -49,7 +49,13 @@ function claimReward(address recipient) public returns (uint256)
 ### Withdraw LP
 
 ```solidity
-function withdraw(address payable recipient) public
+function withdraw(
+	uint256 liquidity,
+	uint256 amountTokenMin,
+	uint256 amountETHMin,
+	address payable to,
+	uint256 deadline
+) external;
 ```
 
 ### Force withdraw LP
@@ -57,7 +63,13 @@ function withdraw(address payable recipient) public
 Note, user will **NOT** receive CFX and PPI rewards if force withdraw locked LP.
 
 ```solidity
-function forceWithdraw(address recipient) public
+function forceWithdraw(
+	uint256 liquidity,
+	uint256 amountTokenMin,
+	uint256 amountETHMin,
+	address to,
+	uint256 deadline
+) external;
 ```
 
 ## Owner Functions
