@@ -32,7 +32,7 @@ contract PoolWithBalancer is Pool {
 
         uint256 amountToken = 0;
         // assume that pair already created and no need to specify weights
-        // TODO minLiquidity?
+        // TODO specify `minLiquidity` to avoid large slippage
         (amountToken, amountETH, liquidity) = router.addLiquidityETH{value: amountETHDesired}(
             token, [uint256(0), uint256(0)], amount, 0, address(this), block.timestamp
         );

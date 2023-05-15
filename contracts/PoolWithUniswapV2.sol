@@ -41,6 +41,7 @@ contract PoolWithUniswapV2 is Pool {
         IERC20(token).safeApprove(address(router), amount);
 
         uint256 amountToken = 0;
+        // TODO specify `amountTokenMin` and `amountETHMin` to avoid large slippage
         (amountToken, amountETH, liquidity) = router.addLiquidityETH{value: amountETHDesired}(
             token, amount, amount, amountETHDesired, address(this), block.timestamp
         );
