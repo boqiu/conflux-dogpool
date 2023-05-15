@@ -25,7 +25,12 @@ contract PoolWithBalancer is Pool {
     }
 
     function _addLiquidityETH(address token, uint256 amount) internal override returns (uint256 amountETH, uint256 liquidity) {
-        // TODO always add liquidity with fixed ratio or dynamic ratio?
+        // Always add liquidity according to the current reserves of pair token.
+        // This way depends on the market maker to work fine. Otherwise, much less
+        // or more CFX will be used to provide liquidity.
+        //
+        // TODO once price oracle for ETC token available, we could provide liquidity
+        // with fixed weight, e.g. 98:2.
         uint256 amountETHDesired = SwappiLibrary.getAmountETH(address(router), token, amount);
 
         IERC20(token).safeApprove(address(router), amount);
