@@ -18,16 +18,14 @@ interface IPool {
         address indexed recipient,
         uint256 liquidity,
         uint256 amountToken,
-        uint256 amountETH,
-        uint256 bonusETH
+        uint256 amountETH
     );
 
     event ForceWithdraw(
         address indexed operator,
         address indexed recipient,
         uint256 liquidity,
-        uint256 amountToken,
-        uint256 amountETH
+        uint256 amountToken
     );
 
     function deposit(uint256 amount, address account) external;

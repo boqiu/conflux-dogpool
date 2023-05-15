@@ -2,8 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "./IPool.sol";
-// import "./SwappableV2.sol";
-import "./SwappableWeighted.sol";
 import "./Farmable.sol";
 import "./swappi/SwappiLibrary.sol";
 import "./TimeWindow.sol";
@@ -11,7 +9,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumerable, Ownable, IPool {
+abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Ownable, IPool {
     using TimeWindow for TimeWindow.BalanceWindow;
     using SafeERC20 for IERC20;
 
@@ -26,24 +24,19 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
-    // e.g. 10 means 10% ETH bonus
-    uint8 public bonusPercentageETH = 10;
-
     uint256 public forceWithdrawRewards;
 
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(
+    function _initialize(
         address router,
         address farmController,
         address minedToken_,
         uint256 lockSlotIntervalSecs_,
         uint256 lockWindowSize_
-    ) public initializer {
-        SwappableWeighted._initialize(router);
-
+    ) internal {
         address lpToken = SwappiLibrary.getPairETH(router, minedToken_);
         Farmable._initialize(farmController, lpToken);
 
@@ -56,6 +49,8 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
         transferOwnership(msg.sender);
     }
 
+    function _addLiquidityETH(address token, uint256 amount) internal virtual returns (uint256 amountETH, uint256 liquidity);
+
     /**
      * @dev Dog pool operator deposits ETC into pool for specified `account`.
      */
@@ -64,7 +59,7 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        (uint256 amountETH, uint256 liquidity) = SwappableWeighted._addLiquidityETH(address(minedToken), amount);
+        (uint256 amountETH, uint256 liquidity) = _addLiquidityETH(address(minedToken), amount);
         emit Deposit(msg.sender, account, amount, amountETH, liquidity);
 
         Farmable._deposit(account, liquidity);
@@ -83,6 +78,8 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
         return _balances[account].balances();
     }
 
+    function _removeLiquidityETH(address token, uint256 liquidity) internal virtual returns (uint256 amountToken, uint256 amountETH);
+
     /**
      * @dev User withdraw unlocked assets.
      */
@@ -98,18 +95,17 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
 
         Farmable._withdraw(msg.sender, amount, recipient);
 
-        (uint256 amountToken, uint256 amountETH) = SwappableWeighted._removeLiquidityETH(address(minedToken), amount);
+        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
 
         if (amountToken > 0) {
             minedToken.safeTransfer(recipient, amountToken);
         }
 
-        uint256 bonusETH = amountETH * bonusPercentageETH / 100;
-        if (bonusETH > 0) {
-            recipient.transfer(bonusETH);
+        if (amountETH > 0) {
+            recipient.transfer(amountETH);
         }
 
-        emit Withdraw(msg.sender, recipient, amount, amountToken, amountETH, bonusETH);
+        emit Withdraw(msg.sender, recipient, amount, amountToken, amountETH);
     }
 
     /**
@@ -126,13 +122,13 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
         // rewards to contract
         forceWithdrawRewards += Farmable._withdraw(msg.sender, amount, address(0));
 
-        (uint256 amountToken, uint256 amountETH) = _removeLiquidityETH(address(minedToken), amount);
+        (uint256 amountToken,) = _removeLiquidityETH(address(minedToken), amount);
 
         if (amountToken > 0) {
             minedToken.safeTransfer(recipient, amountToken);
         }
 
-        emit ForceWithdraw(msg.sender, recipient, amount, amountToken, amountETH);
+        emit ForceWithdraw(msg.sender, recipient, amount, amountToken);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,14 +141,6 @@ contract Pool is Initializable, SwappableWeighted, Farmable, AccessControlEnumer
      * @dev Allow owner/anyone to deposit native tokens into this contract to provide liquidity.
      */
     receive() external payable {}
-
-    /**
-     * @dev Allow owner to set bonus ratio.
-     */
-    function setBonusPercentageETH(uint8 value) public onlyOwner {
-        require(value <= 100, "Pool: value out of bound");
-        bonusPercentageETH = value;
-    }
 
     /**
      * @dev Allow owner to withdraw `amount` of native tokens to specified `recipient`.
