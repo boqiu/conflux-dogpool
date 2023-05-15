@@ -23,7 +23,7 @@ uint256 public totalShares
 function accountInfos(address account) public view returns (uint256 shares, uint256 accRewardPerShare)
 ```
 
-### Query balance
+### Query user balance
 
 ```solidity
 function balanceOf(address account) public view override returns (
@@ -36,6 +36,14 @@ struct LockedBalance {
 	uint256 amount;
 	uint256 unlockTime;
 }
+```
+
+### Query or claim user rewards
+
+Note, please set the `from` address in `eth_call` to query account rewards.
+
+```solidity
+function claimReward(address recipient) public returns (uint256)
 ```
 
 ### Withdraw LP

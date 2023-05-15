@@ -24,8 +24,6 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
-    uint256 public forceWithdrawRewards;
-
     constructor() {
         _disableInitializers();
     }
@@ -56,6 +54,7 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      */
     function deposit(uint256 amount, address account) public override onlyRole(DEPOSIT_ROLE) {
         require(amount > 0, "Pool: amount is zero");
+        require(account != address(0), "Pool: account is empty address");
 
         minedToken.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -84,6 +83,8 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      * @dev User withdraw unlocked assets.
      */
     function withdraw(address payable recipient) public override {
+        require(recipient != address(0), "Pool: recipient is empty address");
+
         uint256 amount = _balances[msg.sender].pop();
         if (amount == 0) {
             return;
@@ -112,6 +113,8 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      * @dev Allow user to force withdraw locked assets without bonus.
      */
     function forceWithdraw(address recipient) public override {
+        require(recipient != address(0), "Pool: recipient is empty address");
+
         uint256 amount = _balances[msg.sender].clear();
         if (amount == 0) {
             return;
@@ -120,7 +123,7 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
         delete _balances[msg.sender];
 
         // rewards to contract
-        forceWithdrawRewards += Farmable._withdraw(msg.sender, amount, address(0));
+        Farmable._withdraw(msg.sender, amount, address(0));
 
         (uint256 amountToken,) = _removeLiquidityETH(address(minedToken), amount);
 
@@ -146,7 +149,8 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      * @dev Allow owner to withdraw `amount` of native tokens to specified `recipient`.
      */
     function withdrawETH(uint256 amount, address payable recipient) public onlyOwner {
-        require(amount <= address(this).balance, "Swappable: balance not enough");
+        require(amount <= address(this).balance, "Pool: balance not enough");
+        require(recipient != address(0), "Pool: recipient is empty address");
         recipient.transfer(amount);
     }
 
@@ -155,6 +159,7 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
      */
     function withdrawRewards(uint256 amount, address recipient) public onlyOwner {
         require(amount <= forceWithdrawRewards, "Pool: insufficient rewards");
+        require(recipient != address(0), "Pool: recipient is empty address");
         forceWithdrawRewards -= amount;
         Farmable.rewardToken.safeTransfer(recipient, amount);
     }

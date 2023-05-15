@@ -13,13 +13,18 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract Farmable is RewardablePool {
     using SafeERC20 for IERC20;
 
-    event Reward(address indexed account, address indexed recipient, uint256 amount);
+    event Reward(address indexed account, uint256 amount);
+    event Claim(address indexed account, address indexed recipient, uint256 amount);
 
     IFarm public farm;
     IERC20 public rewardToken;      // e.g. PPI
 
     IERC20 public lpToken;          // e.g. ETC-ETH
     uint256 public poolId;          // pool index for deposit/withdraw
+
+    mapping(address => uint256) public pendingRewards;
+
+    uint256 public forceWithdrawRewards;
 
     function _initialize(address farm_, address lpToken_) internal {
         farm = IFarm(farm_);
@@ -42,37 +47,61 @@ contract Farmable is RewardablePool {
     }
 
     /**
-     * @dev Query the reward of specified `account`.
+     * @dev Claim reward.
      */
-    function rewardOf(address account) public returns (uint256) {
+    function claimReward(address recipient) public returns (uint256) {
         uint256 reward = farm.deposit(poolId, 0);
-        return RewardablePool._deposit(reward, account, 0);
+        uint256 accountReward = RewardablePool._deposit(reward, msg.sender, 0);
+
+        if (pendingRewards[msg.sender] > 0) {
+            accountReward += pendingRewards[msg.sender];
+            delete pendingRewards[msg.sender];
+        }
+
+        if (accountReward > 0) {
+            rewardToken.safeTransfer(recipient, accountReward);
+            emit Claim(msg.sender, recipient, accountReward);
+        }
+
+        return accountReward;
     }
 
-    function _deposit(address account, uint256 liquidity) internal returns (uint256 accountReward) {
+    function _deposit(address account, uint256 liquidity) internal {
         if (liquidity > 0) {
             lpToken.safeApprove(address(farm), liquidity);
         }
 
         uint256 reward = farm.deposit(poolId, liquidity);
 
-        accountReward = RewardablePool._deposit(reward, account, liquidity);
+        uint256 accountReward = RewardablePool._deposit(reward, account, liquidity);
+
         if (accountReward > 0) {
-            rewardToken.safeTransfer(account, accountReward);
-            emit Reward(account, account, accountReward);
+            pendingRewards[account] += accountReward;
+            emit Reward(account, accountReward);
         }
     }
 
-    function _withdraw(address account, uint256 liquidity, address rewardRecipient) internal returns (uint256 accountReward) {
+    function _withdraw(address account, uint256 liquidity, address rewardRecipient) internal {
         uint256 reward = farm.withdraw(poolId, liquidity);
 
-        accountReward = RewardablePool._withdraw(reward, account, liquidity);
-        if (accountReward > 0) {
-            if (rewardRecipient != address(0)) {
-                rewardToken.safeTransfer(rewardRecipient, accountReward);
-            }
+        uint256 accountReward = RewardablePool._withdraw(reward, account, liquidity);
 
-            emit Reward(account, rewardRecipient, accountReward);
+        if (accountReward > 0) {
+            emit Reward(account, accountReward);
+        }
+
+        if (pendingRewards[account] > 0) {
+            accountReward += pendingRewards[account];
+            delete pendingRewards[msg.sender];
+        }
+
+        if (accountReward > 0) {
+            if (rewardRecipient == address(0)) {
+                forceWithdrawRewards += accountReward;
+            } else {
+                rewardToken.safeTransfer(rewardRecipient, accountReward);
+                emit Claim(account, rewardRecipient, accountReward);
+            }
         }
     }
 
