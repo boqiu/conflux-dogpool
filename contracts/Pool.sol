@@ -24,10 +24,6 @@ abstract contract Pool is Initializable, Farmable, AccessControlEnumerable, Owna
 
     mapping(address => TimeWindow.BalanceWindow) private _balances;
 
-    constructor() {
-        _disableInitializers();
-    }
-
     function _initialize(
         address router,
         address farmController,
