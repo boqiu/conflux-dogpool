@@ -1,3 +1,12 @@
+## Swappi Configurations
+
+```solidity
+address public router;		// Balancer router
+address public minedToken;	// ETC token
+address public rewardToken;	// PPI token
+address public lpToken;		// ETC-CFX pair token
+```
+
 ## Dog Pool Operator Functions
 
 ### Deposit ETC for users
