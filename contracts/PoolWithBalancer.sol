@@ -50,8 +50,9 @@ contract PoolWithBalancer is Pool {
         uint256 amountETHMin,
         uint256 deadline
     ) internal override returns (uint256 amountToken, uint256 amountETH) {
-        address pair = SwappiLibrary.getPairETH(address(router), token);
-        IERC20(pair).safeApprove(address(router), liquidity);
+        // `approve` not required
+        // address pair = SwappiLibrary.getPairETH(address(router), token);
+        // IERC20(pair).safeApprove(address(router), liquidity);
 
         (amountToken, amountETH) = router.removeLiquidityETH(
             token, liquidity, amountTokenMin, amountETHMin, address(this), deadline
